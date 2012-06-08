@@ -1,0 +1,64 @@
+<?php
+
+/**
+ * Implements hook_menu().
+ */
+function blockcache_stale_contextual_menu() {
+
+  $items['blockcache_stale'] = array(
+      'title' => t('Clear cache on a block'),
+      'page callback' => 'blockcache_stale_contextual_clearcache_ping',
+      // 'page arguments' => array('dm_views_argument_form', 1, 2, 3),
+      'access callback' => TRUE,
+      'type' => MENU_CALLBACK
+  );
+
+  return $items;
+}
+
+/**
+ * Drupal action menu called by a contextual link with two parameters
+ * - block: block id of the block
+ * - destination: concerned url
+ */
+function blockcache_stale_contextual_clearcache_ping() {
+  $bid = $_GET['block'];
+  $page = $_GET['destination'];
+
+  // TODO: control check on variables
+  blockcache_stale_clear_block($bid, $page);
+
+  drupal_set_message(t('Clear block cache demanded for %bid on %page', array('%bid' => $bid, '%page' => $page)));
+  drupal_goto(drupal_get_destination());
+}
+
+/**
+ * Implements hook_contextual_links_view_alter().
+ * Add contextual link for cache clearing on block whose cache is activated
+ */
+function blockcache_stale_contextual_contextual_links_view_alter(&$element, &$items) {
+  // This hook is called for EVERY set of contextual links
+  // on a page.  We first want to check the $element to make
+  // sure we are adding a link to the correct list of contextual
+  // links. In this case we only want to add a link to blocks
+  // whose cache are enabled.
+  if (isset($element['#element']['#block']) && $element['#element']['#block']->cache >= 1) {
+
+    $destination = drupal_get_destination();
+
+    $element['#links']['blockcache_stale'] = array(
+      'title' => 'Clear cache for this block',
+      'href' => url(
+        '/blockcache_stale',
+        array(
+          'absolute' => TRUE,
+          'query' => array(
+            'block' => $element['#element']['#block']->bid,
+            'destination' => $destination['destination']
+            )
+          )
+        ),
+    );
+  }
+}
+

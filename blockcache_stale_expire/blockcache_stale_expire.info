@@ -1,0 +1,11 @@
+name = "Block Cache Staling – react on expire node"
+description = "Allow context to use the block caching provided by the Blockcache alter module."
+dependencies[] = "expire"
+dependencies[] = "blockcache_stale"
+package = "Block Cache Stale"
+core = 7.x
+
+
+files[] = blockcache_stale_expire.module
+
+

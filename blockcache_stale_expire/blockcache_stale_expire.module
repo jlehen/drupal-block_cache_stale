@@ -1,0 +1,13 @@
+<?php
+
+ /**
+ * Implements hook_expire_cache().
+ *
+ * Takes an array from expire.module and issue stale cache.
+ * You may also safely call this function directly with an array of local urls to purge.
+ */
+function blockcache_stale_expire_expire_cache($paths) {
+  //TODO: remove rss.xml ?
+  blockcache_stale_clear_page($paths);
+}
+

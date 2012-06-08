@@ -1,0 +1,10 @@
+name = "Block Cache Staling – contextual link on block"
+description = "Allow context to use the block caching provided by the Blockcache alter module."
+dependencies[] = "blockcache_stale"
+dependencies[] = "context"
+dependencies[] = "contextual"
+package = "Block Cache Stale"
+core = 7.x
+
+
+files[] = blockcache_stale_contextual.module

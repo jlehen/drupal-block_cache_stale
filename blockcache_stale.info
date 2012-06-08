@@ -1,0 +1,11 @@
+name = "Block Cache Staling"
+description = "Allow context to use the block caching provided by the Blockcache alter module."
+dependencies[] = "context"
+dependencies[] = "blockcache_alter"
+package = "Block Cache Stale"
+core = 7.x
+
+
+files[] = plugins/blockcache_stale_reaction_block.inc
+files[] = blockcache_stale.module
+files[] = blockcache_stale.install

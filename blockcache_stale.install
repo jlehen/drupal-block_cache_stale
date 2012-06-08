@@ -1,0 +1,15 @@
+<?php
+
+/**
+ * @file
+ * Install, update and uninstall functions for the context_blockcache_alter module.
+ */
+
+/**
+ * Implements hook_install().
+ * Ensure that this module is loaded after context
+ */
+function blockcache_stale_install() {
+
+}
+
