@@ -173,3 +173,66 @@ function blockcache_stale_block_get_cache_id($block) {
     return implode(':', $cid_parts);
   }
 }
+
+/**
+ * Implements hook_form_alter().
+ *
+ * Change node_form_submit callback just to override
+ * the block and page cache clearing after each node
+ * form submit
+ *
+ * @see http://drupalcode.org/project/performance_hacks.git/blob/HEAD:/performance_hacks.module
+ */
+function blockcache_stale_form_alter(&$form, $form_state, $form_id) {
+  if (!empty($form['#node_edit_form'])) {
+    $node_form_submit = array_search('node_form_submit', $form['actions']['submit']['#submit']);
+    if ($node_form_submit !== FALSE) {
+      $form['actions']['submit']['#submit'][$node_form_submit] = 'blockcache_stale_node_form_submit';
+    }
+  }
+}
+
+/**
+ * Exact copy of node_form_submit, except for cache clearing.
+ * Do not clear block and page cache because we are overriding
+ * by daemon script.
+ * This way, cache are never deleted, but they are overriden
+ * by the daemon script so cache is always existing and perfectly
+ * up to date.
+ *
+ * The only change with the original node_form_submit is the last
+ * line commented
+ *
+ * @see http://drupalcode.org/project/performance_hacks.git/blob/HEAD:/performance_hacks.module
+ */
+function blockcache_stale_node_form_submit($form, &$form_state) {
+  $node = node_form_submit_build_node($form, $form_state);
+  $insert = empty($node->nid);
+  node_save($node);
+  $node_link = l(t('view'), 'node/' . $node->nid);
+  $watchdog_args = array('@type' => $node->type, '%title' => $node->title);
+  $t_args = array('@type' => node_type_get_name($node), '%title' => $node->title);
+
+  if ($insert) {
+    watchdog('content', '@type: added %title.', $watchdog_args, WATCHDOG_NOTICE, $node_link);
+    drupal_set_message(t('@type %title has been created.', $t_args));
+  }
+  else {
+    watchdog('content', '@type: updated %title.', $watchdog_args, WATCHDOG_NOTICE, $node_link);
+    drupal_set_message(t('@type %title has been updated.', $t_args));
+  }
+  if ($node->nid) {
+    $form_state['values']['nid'] = $node->nid;
+    $form_state['nid'] = $node->nid;
+    $form_state['redirect'] = 'node/' . $node->nid;
+  }
+  else {
+    // In the unlikely case something went wrong on save, the node will be
+    // rebuilt and node form redisplayed the same way as in preview.
+    drupal_set_message(t('The post could not be saved.'), 'error');
+    $form_state['rebuild'] = TRUE;
+  }
+  // Only change from Drupal core - try to keep this updated.
+  // Clear the page and block caches.
+  //cache_clear_all();
+}
