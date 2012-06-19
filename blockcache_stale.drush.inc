@@ -83,12 +83,14 @@ class BcsMasterZmq {
         exit(0);
       }
 
-      if (strpos($msg, 'clear-block') !== FALSE) {
-        call_user_func_array(array(&$this, 'actionClearBlock'), $params);
-      }
-      elseif (strpos($msg, 'clear-pages') !== FALSE) {
-        call_user_func_array(array(&$this, 'actionClearPage'), $params);
-      }
+      // generate action name
+      // form:drupal/msg:clear-block => actionClearBlock
+      // form:drupal/msg:clear-pages => actionClearPages
+      $action = preg_replace('#from:(?:.*)/msg:(.*)$#', '$1', $msg);
+      $action = 'action' . str_replace(' ', '', ucwords(str_replace('-', ' ', $action)));
+
+      // call the action method
+      call_user_func_array(array(&$this, $action), $params);
 
       // import is done
       $this->notifyRunning();
@@ -100,7 +102,7 @@ class BcsMasterZmq {
     blockcache_stale_regenerate_block(unserialize($params));
   }
 
-  protected function actionClearPage($params = array()) {
+  protected function actionClearPages($params = array()) {
     blockcache_stale_regenerate_page(unserialize($params));
   }
 

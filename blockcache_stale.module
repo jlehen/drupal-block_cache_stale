@@ -76,11 +76,13 @@ function blockcache_stale_zmq_ping($action, $params) {
 
 function blockcache_stale_regenerate_block($params = array()) {
   global $base_url;
-  $params['base_url'] = $base_url;
+  $params['base_url'] = str_replace('http://', '', $base_url);
 
-  $client = new Guzzle\Http\Client('{{base_url}}/{{page}}?blockcache_stale_block={{block}}', $params);
+  $url = 'http://{{base_url}}/'. $params['page'] . '?blockcache_stale_block={{block}}';
+
+  $client = new Guzzle\Http\Client($url, $params);
   $response = $client->head()->send();
-  print $response->getStatusCode() . ' ' . $response->getReasonPhrase() . "\n";
+  printf("%s %s: %s\n", $response->getStatusCode(), $response->getReasonPhrase(), $params['page']);
 }
 
 function blockcache_stale_regenerate_page($params = array()) {
@@ -89,9 +91,12 @@ function blockcache_stale_regenerate_page($params = array()) {
 
   foreach ($params['pages'] as $page) {
     $params['page'] = $page;
-    $client = new Guzzle\Http\Client('http://{{base_url}}/{{page}}?blockcache_stale_page=node', $params);
+    $url = 'http://{{base_url}}/'. $params['page'] . '?blockcache_stale_page=node';
+
+    $client = new Guzzle\Http\Client($url, $params);
     $response = $client->head()->send();
-    print $response->getStatusCode() . ' ' . $response->getReasonPhrase() . "\n";
+
+    printf("%s %s: %s\n", $response->getStatusCode(), $response->getReasonPhrase(), $params['page']);
   }
 }
 
@@ -112,7 +117,6 @@ function blockcache_stale_block_render_blocks($region_blocks) {
     // use default render block if not in condition of blockcache_stale
     return blockcache_stale_original_block_render_blocks($region_blocks);
   }
-
 
   // Block caching is not compatible with node access modules. We also
   // preserve the submission of forms in blocks, by fetching from cache only
@@ -239,10 +243,14 @@ function blockcache_stale_block_get_cache_id($block) {
     $cid_parts[] = $block->delta;
 
     $drupal_cid_parts = drupal_render_cid_parts($block->cache);
-    $drupal_cid_parts = preg_replace('/[\?\&]{1}blockcache_stale_(?:block|page)=(?:.*)/', '', $drupal_cid_parts);
     $cid_parts = array_merge($cid_parts, $drupal_cid_parts);
 
-    return implode(':', $cid_parts);
+    $string_cid_parts = implode(':', $cid_parts);
+
+    // remove blockcache_stale tokens
+    $string_cid_parts = preg_replace('/[\?\&]{1}blockcache_stale_(?:block|page)=(?:.*)/', '', $string_cid_parts);
+
+    return $string_cid_parts;
   }
 }
 
