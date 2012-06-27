@@ -49,6 +49,7 @@ function blockcache_stale_context_registry_alter(&$registry) {
  */
 function blockcache_stale_clear_blocks($bid, $page) {
   $params = array(
+    'session_id' => uniqid(),
     'blocks' => $bid,
     'page' => $page
   );
@@ -62,6 +63,7 @@ function blockcache_stale_clear_blocks($bid, $page) {
  */
 function blockcache_stale_clear_page($pages) {
   $params = array(
+    'session_id' => uniqid(),
     'pages' => $pages
   );
   blockcache_stale_zmq_ping('clear-pages', $params);
@@ -86,46 +88,58 @@ function blockcache_stale_zmq_ping($action, $params) {
 
 
 function blockcache_stale_regenerate_blocks($params = array()) {
-
   // build the url
   $url = url(
     $params['page'],
     array(
       'absolute' => true,
       'query' => array(
-        'blockcache_stale_block' => $params['blocks'] // it's an array
+        'blockcache_stale_block' => $params['blocks'], // it's an array
+        'blockcache_stale_session_id' => $params['session_id'],
       )
     )
   );
 
+  $start = microtime(TRUE);
   $client = new Guzzle\Http\Client($url);
   $response = $client->head()->send();
   printf(
-    "%s %s: %s — blocks: %s\n",
+    "%s %s: %s — blocks: %s (in %ss)\n",
     $response->getStatusCode(),
     $response->getReasonPhrase(),
     $params['page'],
-    implode(', ', $params['blocks'])
+    implode(', ', $params['blocks']),
+    round(microtime(TRUE) - $start, 2)
   );
 }
 
 function blockcache_stale_regenerate_page($params = array()) {
-
   foreach ($params['pages'] as $page) {
+    if (is_array($page)) {
+      // handle specifics blocks in pages
+      foreach($page as $block) {
+        $block['session_id'] = $params['session_id'];
+        blockcache_stale_regenerate_blocks($block);
+      }
+      continue;
+    }
+
     $url = url(
       $page,
       array(
         'absolute' => true,
         'query' => array(
-          'blockcache_stale_page' => 1
+          'blockcache_stale_page' => 1,
+          'blockcache_stale_session_id' => $params['session_id'],
         )
       )
     );
 
+    $start = microtime(TRUE);
     $client = new Guzzle\Http\Client($url);
     $response = $client->head()->send();
 
-    printf("%s %s: %s\n", $response->getStatusCode(), $response->getReasonPhrase(), $page);
+    printf("%s %s: %s (in %ss)\n", $response->getStatusCode(), $response->getReasonPhrase(), $page, round(microtime(TRUE) - $start, 2));
   }
 }
 
@@ -153,7 +167,7 @@ function blockcache_stale_block_render_blocks($region_blocks) {
   $cacheable = !count(module_implements('node_grants')) && ($_SERVER['REQUEST_METHOD'] == 'GET' || $_SERVER['REQUEST_METHOD'] == 'HEAD');
   foreach ($region_blocks as $key => $block) {
     // Render the block content if it has not been created already.
-    if (!isset($block->content) && $block->cache >=1 && (!isset($_GET['blockcache_stale_block']) || (isset($_GET['blockcache_stale_block']))&& in_array($key, $_GET['blockcache_stale_block']))) {
+    if (_blockcache_stale_is_useful_to_regenerate_cache($key, $block)) {
       // Erase the block from the static array - we'll put it back if it has
       // content.
       unset($region_blocks[$key]);
@@ -171,9 +185,42 @@ function blockcache_stale_block_render_blocks($region_blocks) {
       }
     }
   }
-  return $region_blocks;
+  return array(); //$region_blocks; // we don't care about returning anything
 }
 
+/**
+ * Decide whether or not a block is supposed to be regenerated
+ *
+ * @param string $key the block_id
+ * @param object $block the block object
+ * @return boolean is the block supposed to be regenerated
+ */
+function _blockcache_stale_is_useful_to_regenerate_cache($key, $block) {
+  // already generated block or no cache at all, skip the block
+  if (isset($block->content) || $block->cache < 1) {
+    return false;
+  }
+
+  // a not demanded block, skip it
+  if (isset($_GET['blockcache_stale_block']) && !in_array($key, $_GET['blockcache_stale_block'])) {
+    return false;
+  }
+
+  // for global block, ensure that they are setted exactly one time in a session of multiple page
+  if ($block->cache == 1) {
+    $session_id = $_GET['blockcache_stale_session_id'];
+    // TODO using variables is BAD for performance! => use a direct cache_get / cache_set?
+    $blocks_already_generated = variable_get('blockcache_stale_' . $session_id, array());
+    if (isset($blocks_already_generated[$key])) {
+      // watchdog('blockcache_stale', 'block already_generated: %msg', array('%msg' => print_r($blocks_already_generated, true)), WATCHDOG_NOTICE, $link = NULL);
+      return false;
+    }
+    $blocks_already_generated[$key] = true;
+    variable_set('blockcache_stale_' . $session_id, $blocks_already_generated);
+  }
+
+  return true;
+}
 
 /**
  * Render the content and subject for a set of blocks.
@@ -277,7 +324,7 @@ function blockcache_stale_block_get_cache_id($block) {
     $string_cid_parts = implode(':', $cid_parts);
 
     // remove blockcache_stale tokens
-    $string_cid_parts = preg_replace('/[\?\&]*blockcache_stale_(?:block|page)(?:%5B[0-9]*%5D)?=(?:.*)/', '', $string_cid_parts);
+    $string_cid_parts = preg_replace('/[\?\&]*blockcache_stale_(?:block|page|session_id)(?:%5B[0-9]*%5D)?=(?:.*)/', '', $string_cid_parts);
 
     return $string_cid_parts;
   }
