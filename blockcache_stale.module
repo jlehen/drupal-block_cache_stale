@@ -10,7 +10,6 @@ function blockcache_stale_init() {
 }
 
 
-
 /**
  * Implements hook_context_plugins().
  * This is a ctools plugins hook.
@@ -41,14 +40,26 @@ function blockcache_stale_context_registry_alter(&$registry) {
   }
 }
 
-function blockcache_stale_clear_block($bid, $page) {
+
+/**
+ * Call zeromq to clear specifics blocs on one page
+ *
+ * @param array $bid array of block id to be cleaed on the $page
+ * @param string $page the concerned relative url page
+ */
+function blockcache_stale_clear_blocks($bid, $page) {
   $params = array(
-    'block' => $bid,
+    'blocks' => $bid,
     'page' => $page
   );
-  blockcache_stale_zmq_ping('clear-block', $params);
+  blockcache_stale_zmq_ping('clear-blocks', $params);
 }
 
+/**
+ * Call zeromq to clear specifics pages
+ *
+ * @param array $pages array of pages to be cleared
+ */
 function blockcache_stale_clear_page($pages) {
   $params = array(
     'pages' => $pages
@@ -74,29 +85,47 @@ function blockcache_stale_zmq_ping($action, $params) {
 
 
 
-function blockcache_stale_regenerate_block($params = array()) {
-  global $base_url;
-  $params['base_url'] = str_replace('http://', '', $base_url);
+function blockcache_stale_regenerate_blocks($params = array()) {
 
-  $url = 'http://{{base_url}}/'. $params['page'] . '?blockcache_stale_block={{block}}';
+  // build the url
+  $url = url(
+    $params['page'],
+    array(
+      'absolute' => true,
+      'query' => array(
+        'blockcache_stale_block' => $params['blocks'] // it's an array
+      )
+    )
+  );
 
-  $client = new Guzzle\Http\Client($url, $params);
+  $client = new Guzzle\Http\Client($url);
   $response = $client->head()->send();
-  printf("%s %s: %s\n", $response->getStatusCode(), $response->getReasonPhrase(), $params['page']);
+  printf(
+    "%s %s: %s — blocks: %s\n",
+    $response->getStatusCode(),
+    $response->getReasonPhrase(),
+    $params['page'],
+    implode(', ', $params['blocks'])
+  );
 }
 
 function blockcache_stale_regenerate_page($params = array()) {
-  global $base_url;
-  $params['base_url'] = str_replace('http://', '', $base_url);
 
   foreach ($params['pages'] as $page) {
-    $params['page'] = $page;
-    $url = 'http://{{base_url}}/'. $params['page'] . '?blockcache_stale_page=node';
+    $url = url(
+      $page,
+      array(
+        'absolute' => true,
+        'query' => array(
+          'blockcache_stale_page' => 1
+        )
+      )
+    );
 
-    $client = new Guzzle\Http\Client($url, $params);
+    $client = new Guzzle\Http\Client($url);
     $response = $client->head()->send();
 
-    printf("%s %s: %s\n", $response->getStatusCode(), $response->getReasonPhrase(), $params['page']);
+    printf("%s %s: %s\n", $response->getStatusCode(), $response->getReasonPhrase(), $page);
   }
 }
 
@@ -124,7 +153,7 @@ function blockcache_stale_block_render_blocks($region_blocks) {
   $cacheable = !count(module_implements('node_grants')) && ($_SERVER['REQUEST_METHOD'] == 'GET' || $_SERVER['REQUEST_METHOD'] == 'HEAD');
   foreach ($region_blocks as $key => $block) {
     // Render the block content if it has not been created already.
-    if (!isset($block->content) && $block->cache >=1 && (!isset($_GET['blockcache_stale_block']) || (isset($_GET['blockcache_stale_block']))&& $key == $_GET['blockcache_stale_block'])) {
+    if (!isset($block->content) && $block->cache >=1 && (!isset($_GET['blockcache_stale_block']) || (isset($_GET['blockcache_stale_block']))&& in_array($key, $_GET['blockcache_stale_block']))) {
       // Erase the block from the static array - we'll put it back if it has
       // content.
       unset($region_blocks[$key]);
@@ -182,8 +211,8 @@ function blockcache_stale_original_block_render_blocks($region_blocks) {
         drupal_alter(array('block_view', "block_view_{$block->module}_{$block->delta}"), $array, $block);
 
         if (isset($cid)) {
-          // cache_set($cid, $array, 'cache_block', CACHE_TEMPORARY); // CHANGED
-          cache_set($cid, $array, 'cache_block', CACHE_PERMANENT);
+          // cache_set($cid, $array, 'cache_block', CACHE_TEMPORARY); // ORIGINAL
+          cache_set($cid, $array, 'cache_block', CACHE_PERMANENT); // CHANGED
         }
       }
 
@@ -248,7 +277,7 @@ function blockcache_stale_block_get_cache_id($block) {
     $string_cid_parts = implode(':', $cid_parts);
 
     // remove blockcache_stale tokens
-    $string_cid_parts = preg_replace('/[\?\&]{1}blockcache_stale_(?:block|page)=(?:.*)/', '', $string_cid_parts);
+    $string_cid_parts = preg_replace('/[\?\&]*blockcache_stale_(?:block|page)(?:%5B[0-9]*%5D)?=(?:.*)/', '', $string_cid_parts);
 
     return $string_cid_parts;
   }

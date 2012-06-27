@@ -26,7 +26,7 @@ function blockcache_stale_contextual_clearcache_ping() {
   $page = $_GET['destination'];
 
   // TODO: control check on variables
-  blockcache_stale_clear_block($bid, $page);
+  blockcache_stale_clear_blocks(array($bid), $page);
 
   drupal_set_message(t('Clear block cache demanded for %bid on %page', array('%bid' => $bid, '%page' => $page)));
   drupal_goto(drupal_get_destination());

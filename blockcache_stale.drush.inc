@@ -84,7 +84,7 @@ class BcsMasterZmq {
       }
 
       // generate action name
-      // form:drupal/msg:clear-block => actionClearBlock
+      // form:drupal/msg:clear-blocks => actionClearBlocks
       // form:drupal/msg:clear-pages => actionClearPages
       $action = preg_replace('#from:(?:.*)/msg:(.*)$#', '$1', $msg);
       $action = 'action' . str_replace(' ', '', ucwords(str_replace('-', ' ', $action)));
@@ -98,8 +98,8 @@ class BcsMasterZmq {
 
   }
 
-  protected function actionClearBlock($params = array()) {
-    blockcache_stale_regenerate_block(unserialize($params));
+  protected function actionClearBlocks($params = array()) {
+    blockcache_stale_regenerate_blocks(unserialize($params));
   }
 
   protected function actionClearPages($params = array()) {
