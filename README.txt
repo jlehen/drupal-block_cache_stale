@@ -56,6 +56,23 @@ Configuration
 Go here: admin/config/development/performance/expire
 and disable "Include base URL in expires"
 
+By default, the ØMQ daemon listens on tcp://*:1234 and the Drupal module
+connects to tcp://localhost:1234.
+
+You can change the URL with which you can reach the daemon in settings.php:
+$conf['blockcache_stale_zmq_connect_url'] = 'tcp://otherhost:1411'
+
+Likewise, you can configure the bind URL for the daemon:
+$conf['blockcache_stale_zmq_daemon_bind_url'] = 'tcp://otherhost:1411'
+
+If for some reason you want to run multiple daemons from the same Drupal
+site configuration and bind them to different URLs, you can derive the
+BcsMasterZmq class.  The URL can be provided as the first parameter of the
+constructor, it overrides the configuration from settings.php.
+
+Different ØMQ URL styles are described here:
+http://api.zeromq.org/2-2:zmq-connect
+
 Difficulties solved
 -------------------
 
