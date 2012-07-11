@@ -54,17 +54,22 @@ class BcsMasterZmq {
   /*
    * create the ZMQ zockets
    */
-  public function __construct($pull_port = 1234, $pub_port = 5560) {
-
+  public function __construct($pull_url = '', $pub_url = '') {
+    if (empty($pull_url)) {
+      $pull_url = variable_get('blockcache_stale_zmq_daemon_bind_url', 'tcp://*:1234');
+    }
     // pull receiver
     $ctx = new ZMQContext();
     $this->pull = new ZMQSocket($ctx, ZMQ::SOCKET_PULL);
-    $this->pull->bind('tcp://*:' . $pull_port);
+    $this->pull->bind($pull_url);
 
     // pub-sub publisher
     // not useful yet because we don't have workers
+    // if (empty($pub_url)) {
+    //   pub_url = variable_get('blockcache_stale_zmq_publisher_bind_url', 'tcp://*:5560');
+    // }
     // $this->pub = new ZMQSocket($ctx, ZMQ::SOCKET_PUB);
-    // $this->pub->bind("tcp://*:" . $pub_port);
+    // $this->pub->bind($pub_url);
   }
 
   public function listen() {
