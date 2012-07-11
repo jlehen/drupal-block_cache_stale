@@ -59,7 +59,7 @@ class BcsMasterZmq {
     // pull receiver
     $ctx = new ZMQContext();
     $this->pull = new ZMQSocket($ctx, ZMQ::SOCKET_PULL);
-    $this->pull->connect('tcp://localhost:' . $pull_port);
+    $this->pull->bind('tcp://*:' . $pull_port);
 
     // pub-sub publisher
     // not useful yet because we don't have workers

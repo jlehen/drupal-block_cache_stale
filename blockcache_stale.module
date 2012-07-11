@@ -77,7 +77,7 @@ function blockcache_stale_zmq_ping($action, $params) {
 
   $ctx = new ZMQContext();
   $socket = new ZMQSocket($ctx, ZMQ::SOCKET_PUSH);
-  $socket->bind('tcp://*:1234');
+  $socket->connect('tcp://localhost:1234');
   $socket->sendMulti($actions);
 
   watchdog('blockcache_stale', 'ping clear block: %msg', array('%msg' => $msg), WATCHDOG_NOTICE, $link = NULL);
