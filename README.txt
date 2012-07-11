@@ -63,7 +63,7 @@ You can change the URL with which you can reach the daemon in settings.php:
 $conf['blockcache_stale_zmq_connect_url'] = 'tcp://otherhost:1411'
 
 Likewise, you can configure the bind URL for the daemon:
-$conf['blockcache_stale_zmq_daemon_bind_url'] = 'tcp://otherhost:1411'
+$conf['blockcache_stale_zmq_daemon_bind_url'] = 'tcp://*:1411'
 
 If for some reason you want to run multiple daemons from the same Drupal
 site configuration and bind them to different URLs, you can derive the
